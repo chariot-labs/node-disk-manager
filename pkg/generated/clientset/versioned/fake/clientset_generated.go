@@ -20,6 +20,8 @@ package fake
 
 import (
 	clientset "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned"
+	cephv1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/ceph.rook.io/v1"
+	fakecephv1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/ceph.rook.io/v1/fake"
 	harvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1"
 	fakeharvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1/fake"
 	longhornv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/longhorn.io/v1beta1"
@@ -77,6 +79,11 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 }
 
 var _ clientset.Interface = &Clientset{}
+
+// CephV1 retrieves the CephV1Client
+func (c *Clientset) CephV1() cephv1.CephV1Interface {
+	return &fakecephv1.FakeCephV1{Fake: &c.Fake}
+}
 
 // HarvesterhciV1beta1 retrieves the HarvesterhciV1beta1Client
 func (c *Clientset) HarvesterhciV1beta1() harvesterhciv1beta1.HarvesterhciV1beta1Interface {

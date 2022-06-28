@@ -26,6 +26,8 @@ import (
 	"github.com/harvester/node-disk-manager/pkg/block"
 	blockdevicev1 "github.com/harvester/node-disk-manager/pkg/controller/blockdevice"
 	nodev1 "github.com/harvester/node-disk-manager/pkg/controller/node"
+
+	//ctlrookceph "github.com/harvester/node-disk-manager/pkg/generated/controllers/ceph.rook.io"
 	ctldisk "github.com/harvester/node-disk-manager/pkg/generated/controllers/harvesterhci.io"
 	ctllonghorn "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io"
 	"github.com/harvester/node-disk-manager/pkg/option"
@@ -200,6 +202,7 @@ func run(opt *option.Option) error {
 	}
 
 	lhs, err := ctllonghorn.NewFactoryFromConfig(kubeConfig)
+	//rcs, err := ctlrookceph.NewFactoryFromConfig(kubeConfig)
 	if err != nil {
 		return fmt.Errorf("error building node-disk-manager controllers: %s", err.Error())
 	}
@@ -207,6 +210,7 @@ func run(opt *option.Option) error {
 	excludeFilters := filter.SetExcludeFilters(opt.VendorFilter, opt.PathFilter, opt.LabelFilter)
 	autoProvisionFilters := filter.SetAutoProvisionFilters(opt.AutoProvisionFilter)
 
+	//rcs.Ceph().V1().CephCluster()
 	start := func(ctx context.Context) {
 		bds := disks.Harvesterhci().V1beta1().BlockDevice()
 		nodes := lhs.Longhorn().V1beta1().Node()

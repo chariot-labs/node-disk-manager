@@ -21,6 +21,7 @@ package versioned
 import (
 	"fmt"
 
+	cephv1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/ceph.rook.io/v1"
 	harvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1"
 	longhornv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/longhorn.io/v1beta1"
 	discovery "k8s.io/client-go/discovery"
@@ -30,6 +31,7 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	CephV1() cephv1.CephV1Interface
 	HarvesterhciV1beta1() harvesterhciv1beta1.HarvesterhciV1beta1Interface
 	LonghornV1beta1() longhornv1beta1.LonghornV1beta1Interface
 }
@@ -38,8 +40,14 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	cephV1              *cephv1.CephV1Client
 	harvesterhciV1beta1 *harvesterhciv1beta1.HarvesterhciV1beta1Client
 	longhornV1beta1     *longhornv1beta1.LonghornV1beta1Client
+}
+
+// CephV1 retrieves the CephV1Client
+func (c *Clientset) CephV1() cephv1.CephV1Interface {
+	return c.cephV1
 }
 
 // HarvesterhciV1beta1 retrieves the HarvesterhciV1beta1Client
@@ -73,6 +81,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
+	cs.cephV1, err = cephv1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.harvesterhciV1beta1, err = harvesterhciv1beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -93,6 +105,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.cephV1 = cephv1.NewForConfigOrDie(c)
 	cs.harvesterhciV1beta1 = harvesterhciv1beta1.NewForConfigOrDie(c)
 	cs.longhornV1beta1 = longhornv1beta1.NewForConfigOrDie(c)
 
@@ -103,6 +116,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.cephV1 = cephv1.New(c)
 	cs.harvesterhciV1beta1 = harvesterhciv1beta1.New(c)
 	cs.longhornV1beta1 = longhornv1beta1.New(c)
 

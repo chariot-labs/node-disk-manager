@@ -21,6 +21,7 @@ package fake
 import (
 	harvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/apis/harvesterhci.io/v1beta1"
 	longhornv1beta1 "github.com/longhorn/longhorn-manager/k8s/pkg/apis/longhorn/v1beta1"
+	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,6 +33,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
+	cephv1.AddToScheme,
 	harvesterhciv1beta1.AddToScheme,
 	longhornv1beta1.AddToScheme,
 }
