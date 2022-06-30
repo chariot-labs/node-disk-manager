@@ -84,14 +84,14 @@ func (s *Scanner) collectAllDevices() []*deviceWithAutoProvision {
 		if s.ApplyExcludeFiltersForDisk(disk) {
 			continue
 		}
-		logrus.Debugf("Found a disk block device /dev/%s", disk.Name)
+		logrus.Infof("Found a disk block device /dev/%s", disk.Name)
 		bd := GetDiskBlockDevice(disk, s.NodeName, s.Namespace)
 		if bd.Name == "" {
 			logrus.Infof("Skip adding non-identifiable block device /dev/%s", disk.Name)
 			continue
 		}
 		autoProv := s.ApplyAutoProvisionFiltersForDisk(disk)
-		allDevices = append(allDevices, &deviceWithAutoProvision{bd: bd, AutoProvisioned: autoProv})
+		allDevices = append(allDevices, &deviceWithAutoProvision{bd: bd, AutoProvisioned: true})
 
 		for _, part := range disk.Partitions {
 			// ignore block device by filters
@@ -112,7 +112,7 @@ func (s *Scanner) collectAllDevices() []*deviceWithAutoProvision {
 
 // scanBlockDevicesOnNode scans block devices on the node, and it will either create or update them.
 func (s *Scanner) scanBlockDevicesOnNode() error {
-	logrus.Debugf("Scan block devices of node: %s", s.NodeName)
+	logrus.Infof("Scan block devices of node: %v", s.NodeName)
 
 	// list all the block devices
 	allDevices := s.collectAllDevices()
@@ -130,18 +130,18 @@ func (s *Scanner) scanBlockDevicesOnNode() error {
 		autoProvisioned := device.AutoProvisioned
 		if oldBd, ok := oldBds[bd.Name]; ok {
 			if s.NeedsAutoProvision(oldBd, autoProvisioned) {
-				logrus.Debugf("Enqueue block device %s for auto-provisioning", bd.Name)
+				logrus.Infof("Enqueue block device %v for auto-provisioning", bd.Name)
 				s.Blockdevices.Enqueue(s.Namespace, bd.Name)
 			} else if isDevPathChanged(oldBd, bd) {
-				logrus.Debugf("Enqueue block device %s for device path change", bd.Name)
+				logrus.Infof("Enqueue block device %v for device path change", bd.Name)
 				s.Blockdevices.Enqueue(s.Namespace, bd.Name)
 			} else {
-				logrus.Debugf("Skip updating device %s", bd.Name)
+				logrus.Infof("Skip updating device %v", bd.Name)
 			}
 			// remove blockdevice from old device so we can delete missing devices afterward
 			delete(oldBds, bd.Name)
 		} else {
-			logrus.Debugf("Create new device %s", bd.Name)
+			logrus.Infof("Create new device %v", bd.Name)
 			// persist newly detected block device
 			if _, err := s.SaveBlockDevice(bd, autoProvisioned); err != nil && !errors.IsAlreadyExists(err) {
 				return err
@@ -152,7 +152,7 @@ func (s *Scanner) scanBlockDevicesOnNode() error {
 	// This oldBds are leftover after running SaveBlockDevice.
 	// Clean up all previous registered block devices.
 	for _, oldBd := range oldBds {
-		logrus.Debugf("Delete device %s", oldBd.Name)
+		logrus.Infof("Delete device %v", oldBd.Name)
 		if err := s.Blockdevices.Delete(oldBd.Namespace, oldBd.Name, &metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -201,7 +201,7 @@ func (s *Scanner) ApplyExcludeFiltersForPartition(part *block.Partition) bool {
 func (s *Scanner) ApplyAutoProvisionFiltersForDisk(disk *block.Disk) bool {
 	for _, filter := range s.AutoProvisionFilters {
 		if filter.ApplyDiskFilter(disk) {
-			logrus.Debugf("block device /dev/%s is promoted to auto-provision by %s", disk.Name, filter.Name)
+			logrus.Infof("block device /dev/%s is promoted to auto-provision by %s", disk.Name, filter.Name)
 			return true
 		}
 	}
