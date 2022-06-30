@@ -23,7 +23,6 @@ import (
 
 	cephv1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/ceph.rook.io/v1"
 	harvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1"
-	longhornv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/longhorn.io/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -33,7 +32,6 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CephV1() cephv1.CephV1Interface
 	HarvesterhciV1beta1() harvesterhciv1beta1.HarvesterhciV1beta1Interface
-	LonghornV1beta1() longhornv1beta1.LonghornV1beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -42,7 +40,6 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	cephV1              *cephv1.CephV1Client
 	harvesterhciV1beta1 *harvesterhciv1beta1.HarvesterhciV1beta1Client
-	longhornV1beta1     *longhornv1beta1.LonghornV1beta1Client
 }
 
 // CephV1 retrieves the CephV1Client
@@ -53,11 +50,6 @@ func (c *Clientset) CephV1() cephv1.CephV1Interface {
 // HarvesterhciV1beta1 retrieves the HarvesterhciV1beta1Client
 func (c *Clientset) HarvesterhciV1beta1() harvesterhciv1beta1.HarvesterhciV1beta1Interface {
 	return c.harvesterhciV1beta1
-}
-
-// LonghornV1beta1 retrieves the LonghornV1beta1Client
-func (c *Clientset) LonghornV1beta1() longhornv1beta1.LonghornV1beta1Interface {
-	return c.longhornV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -89,10 +81,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.longhornV1beta1, err = longhornv1beta1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -107,7 +95,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.cephV1 = cephv1.NewForConfigOrDie(c)
 	cs.harvesterhciV1beta1 = harvesterhciv1beta1.NewForConfigOrDie(c)
-	cs.longhornV1beta1 = longhornv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -118,7 +105,6 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.cephV1 = cephv1.New(c)
 	cs.harvesterhciV1beta1 = harvesterhciv1beta1.New(c)
-	cs.longhornV1beta1 = longhornv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

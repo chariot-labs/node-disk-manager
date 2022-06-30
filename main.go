@@ -27,9 +27,10 @@ import (
 	blockdevicev1 "github.com/harvester/node-disk-manager/pkg/controller/blockdevice"
 	nodev1 "github.com/harvester/node-disk-manager/pkg/controller/node"
 
-	//ctlrookceph "github.com/harvester/node-disk-manager/pkg/generated/controllers/ceph.rook.io"
+	ctlrookceph "github.com/harvester/node-disk-manager/pkg/generated/controllers/ceph.rook.io"
 	ctldisk "github.com/harvester/node-disk-manager/pkg/generated/controllers/harvesterhci.io"
-	ctllonghorn "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io"
+
+	//ctllonghorn "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io"
 	"github.com/harvester/node-disk-manager/pkg/option"
 	"github.com/harvester/node-disk-manager/pkg/udev"
 	"github.com/harvester/node-disk-manager/pkg/version"
@@ -49,10 +50,12 @@ func main() {
 			Usage:       "Kube config for accessing k8s cluster",
 		},
 		&cli.StringFlag{
-			Name:        "namespace",
-			Value:       "longhorn-system",
-			DefaultText: "longhorn-system",
-			EnvVars:     []string{"LONGHORN_NAMESPACE"},
+			Name: "namespace",
+			//Value:       "longhorn-system",
+			//DefaultText: "longhorn-system",
+			Value:       "rook-ceph",
+			DefaultText: "rook-ceph",
+			EnvVars:     []string{"ROOK_NAMESPACE"},
 			Destination: &opt.Namespace,
 		},
 		&cli.IntFlag{
@@ -96,8 +99,8 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:        "vendor-filter",
-			Value:       "longhorn",
-			DefaultText: "longhorn",
+			Value:       "rook-ceph",
+			DefaultText: "rook-ceph",
 			EnvVars:     []string{"NDM_VENDOR_FILTER"},
 			Usage:       "A string of comma-separated values that you want to exclude for block device vendor filter",
 			Destination: &opt.VendorFilter,
@@ -201,8 +204,8 @@ func run(opt *option.Option) error {
 		return fmt.Errorf("error building node-disk-manager controllers: %s", err.Error())
 	}
 
-	lhs, err := ctllonghorn.NewFactoryFromConfig(kubeConfig)
-	//rcs, err := ctlrookceph.NewFactoryFromConfig(kubeConfig)
+	//lhs, err := ctllonghorn.NewFactoryFromConfig(kubeConfig)
+	rcs, err := ctlrookceph.NewFactoryFromConfig(kubeConfig)
 	if err != nil {
 		return fmt.Errorf("error building node-disk-manager controllers: %s", err.Error())
 	}
@@ -210,10 +213,10 @@ func run(opt *option.Option) error {
 	excludeFilters := filter.SetExcludeFilters(opt.VendorFilter, opt.PathFilter, opt.LabelFilter)
 	autoProvisionFilters := filter.SetAutoProvisionFilters(opt.AutoProvisionFilter)
 
-	//rcs.Ceph().V1().CephCluster()
 	start := func(ctx context.Context) {
 		bds := disks.Harvesterhci().V1beta1().BlockDevice()
-		nodes := lhs.Longhorn().V1beta1().Node()
+		//nodes := lhs.Longhorn().V1beta1().Node()
+		nodes := rcs.Ceph().V1().CephCluster()
 		scanner := blockdevicev1.NewScanner(
 			opt.NodeName,
 			opt.Namespace,
@@ -237,7 +240,7 @@ func run(opt *option.Option) error {
 			logrus.Fatalf("failed to register ndm node controller, %s", err.Error())
 		}
 
-		if err := start.All(ctx, opt.Threadiness, disks, lhs); err != nil {
+		if err := start.All(ctx, opt.Threadiness, disks, rcs); err != nil {
 			logrus.Fatalf("error starting, %s", err.Error())
 		}
 

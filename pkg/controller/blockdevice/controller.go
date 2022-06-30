@@ -11,8 +11,10 @@ import (
 	"time"
 
 	ghwutil "github.com/jaypipes/ghw/pkg/util"
-	lhtypes "github.com/longhorn/longhorn-manager/types"
-	lhutil "github.com/longhorn/longhorn-manager/util"
+	//lhtypes "github.com/longhorn/longhorn-manager/types"
+	//lhutil "github.com/longhorn/longhorn-manager/util"
+
+	rcv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,9 +25,10 @@ import (
 	"github.com/harvester/node-disk-manager/pkg/block"
 	"github.com/harvester/node-disk-manager/pkg/disk"
 	ctldiskv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/harvesterhci.io/v1beta1"
-	ctllonghornv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io/v1beta1"
+
+	//ctllonghornv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io/v1beta1"
+	ctlrookcephv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/ceph.rook.io/v1"
 	"github.com/harvester/node-disk-manager/pkg/option"
-	"github.com/harvester/node-disk-manager/pkg/util"
 )
 
 const (
@@ -71,8 +74,8 @@ type Controller struct {
 	Namespace string
 	NodeName  string
 
-	NodeCache ctllonghornv1.NodeCache
-	Nodes     ctllonghornv1.NodeClient
+	NodeCache ctlrookcephv1.CephClusterCache
+	Nodes     ctlrookcephv1.CephClusterClient
 
 	Blockdevices     ctldiskv1.BlockDeviceController
 	BlockdeviceCache ctldiskv1.BlockDeviceCache
@@ -97,7 +100,7 @@ func (f NeedMountUpdate) Has(flag NeedMountUpdate) bool {
 // Register register the block device CRD controller
 func Register(
 	ctx context.Context,
-	nodes ctllonghornv1.NodeController,
+	nodes ctlrookcephv1.CephClusterController,
 	bds ctldiskv1.BlockDeviceController,
 	block block.Info,
 	opt *option.Option,
@@ -246,7 +249,7 @@ func (c *Controller) updateDeviceFileSystem(device *diskv1.BlockDevice, devPath 
 	if filesystem == nil {
 		return fmt.Errorf("failed to get filesystem info from devPath %s", devPath)
 	}
-	if filesystem.MountPoint != "" && filesystem.Type != "" && !lhutil.IsSupportedFileSystem(filesystem.Type) {
+	if filesystem.MountPoint != "" && filesystem.Type != "" {
 		return fmt.Errorf("unsupported filesystem type %s", filesystem.Type)
 	}
 
@@ -342,27 +345,29 @@ func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
 	}
 
 	nodeCpy := node.DeepCopy()
-	diskSpec := lhtypes.DiskSpec{
-		Path:              extraDiskMountPoint(device),
-		AllowScheduling:   true,
-		EvictionRequested: false,
-		StorageReserved:   0,
-		Tags:              []string{},
+	diskSpec := rcv1.Device{
+		Name:     device.Name,
+		FullPath: extraDiskMountPoint(device),
+		Config:   make(map[string]string),
 	}
 
-	if disk, ok := node.Spec.Disks[device.Name]; !ok || !reflect.DeepEqual(disk, diskSpec) {
-		nodeCpy.Spec.Disks[device.Name] = diskSpec
-		if _, err = c.Nodes.Update(nodeCpy); err != nil {
-			return err
-		}
-
-		if !diskv1.DiskAddedToNode.IsTrue(device) {
-			// Update if needed. If the info is alreay there, no need to update.
-			msg := fmt.Sprintf("Added disk %s to longhorn node `%s` as an additional disk", device.Name, node.Name)
-			device.Status.ProvisionPhase = diskv1.ProvisionPhaseProvisioned
-			diskv1.DiskAddedToNode.SetError(device, "", nil)
-			diskv1.DiskAddedToNode.SetStatusBool(device, true)
-			diskv1.DiskAddedToNode.Message(device, msg)
+	for i, no := range node.Spec.Storage.Nodes {
+		if no.Name == c.NodeName {
+			for j, dev := range no.Selection.Devices {
+				if dev.Name == device.Name {
+					if !reflect.DeepEqual(dev, diskSpec) {
+						nodeCpy.Spec.Storage.Nodes[i].Selection.Devices[j] = diskSpec
+						if _, err = c.Nodes.Update(nodeCpy); err != nil {
+							return err
+						}
+					}
+					break
+				}
+				if j == len(no.Selection.Devices)-1 {
+					nodeCpy.Spec.Storage.Nodes[i].Selection.Devices = append(nodeCpy.Spec.Storage.Nodes[i].Selection.Devices, diskSpec)
+				}
+			}
+			break
 		}
 	}
 
@@ -388,52 +393,66 @@ func (c *Controller) unprovisionDeviceFromNode(device *diskv1.BlockDevice) error
 		diskv1.DiskAddedToNode.Message(device, msg)
 	}
 
-	diskToRemove, ok := node.Spec.Disks[device.Name]
-	if !ok {
+	var diskToRemove rcv1.Device
+	var nodeID, devID int
+	for i, no := range node.Spec.Storage.Nodes {
+		if no.Name == c.NodeName {
+			for j, dev := range no.Selection.Devices {
+				if dev.Name == device.Name {
+					diskToRemove = dev
+					devID = j
+					break
+				}
+			}
+			nodeID = i
+			break
+		}
+	}
+	if diskToRemove.Name != device.Name {
 		logrus.Infof("disk %s not in disks of longhorn node %s/%s", device.Name, c.Namespace, c.NodeName)
 		updateProvisionPhaseUnprovisioned()
 		return nil
 	}
 
-	isUnprovisioning := false
-	for _, tag := range diskToRemove.Tags {
-		if tag == util.DiskRemoveTag {
-			isUnprovisioning = true
-			break
-		}
-	}
+	//isUnprovisioning := false
+	// for _, tag := range diskToRemove.Tags {
+	// 	if tag == util.DiskRemoveTag {
+	// 		isUnprovisioning = true
+	// 		break
+	// 	}
+	// }
 
-	if isUnprovisioning {
-		if status, ok := node.Status.DiskStatus[device.Name]; ok && len(status.ScheduledReplica) == 0 {
-			// Unprovision finished. Remove the disk.
-			nodeCpy := node.DeepCopy()
-			delete(nodeCpy.Spec.Disks, device.Name)
-			if _, err := c.Nodes.Update(nodeCpy); err != nil {
-				return err
-			}
-			updateProvisionPhaseUnprovisioned()
-			logrus.Debugf("device %s is unprovisioned", device.Name)
-		} else {
-			// Still unprovisioning
-			c.Blockdevices.EnqueueAfter(c.Namespace, device.Name, jitterEnqueueDelay())
-			logrus.Debugf("device %s is unprovisioning", device.Name)
-		}
-	} else {
-		// Start unprovisioing
-		diskToRemove.AllowScheduling = false
-		diskToRemove.EvictionRequested = true
-		diskToRemove.Tags = append(diskToRemove.Tags, util.DiskRemoveTag)
-		nodeCpy := node.DeepCopy()
-		nodeCpy.Spec.Disks[device.Name] = diskToRemove
-		if _, err := c.Nodes.Update(nodeCpy); err != nil {
-			return err
-		}
-		msg := fmt.Sprintf("Stop provisioning device %s to longhorn node `%s`", device.Name, c.NodeName)
-		device.Status.ProvisionPhase = diskv1.ProvisionPhaseUnprovisioning
-		diskv1.DiskAddedToNode.SetError(device, "", nil)
-		diskv1.DiskAddedToNode.SetStatusBool(device, false)
-		diskv1.DiskAddedToNode.Message(device, msg)
+	// if isUnprovisioning {
+	// 	if status, ok := node.Status.DiskStatus[device.Name]; ok && len(status.ScheduledReplica) == 0 {
+	// 		// Unprovision finished. Remove the disk.
+	// 		nodeCpy := node.DeepCopy()
+	// 		delete(nodeCpy.Spec.Disks, device.Name)
+	// 		if _, err := c.Nodes.Update(nodeCpy); err != nil {
+	// 			return err
+	// 		}
+	// 		updateProvisionPhaseUnprovisioned()
+	// 		logrus.Debugf("device %s is unprovisioned", device.Name)
+	// 	} else {
+	// 		// Still unprovisioning
+	// 		c.Blockdevices.EnqueueAfter(c.Namespace, device.Name, jitterEnqueueDelay())
+	// 		logrus.Debugf("device %s is unprovisioning", device.Name)
+	// 	}
+	// } else {
+	// Start unprovisioing
+	// diskToRemove.AllowScheduling = false
+	// diskToRemove.EvictionRequested = true
+	// diskToRemove.Tags = append(diskToRemove.Tags, util.DiskRemoveTag)
+	nodeCpy := node.DeepCopy()
+	nodeCpy.Spec.Storage.Nodes[nodeID].Devices[devID] = diskToRemove
+	if _, err := c.Nodes.Update(nodeCpy); err != nil {
+		return err
 	}
+	msg := fmt.Sprintf("Stop provisioning device %s to longhorn node `%s`", device.Name, c.NodeName)
+	device.Status.ProvisionPhase = diskv1.ProvisionPhaseUnprovisioning
+	diskv1.DiskAddedToNode.SetError(device, "", nil)
+	diskv1.DiskAddedToNode.SetStatusBool(device, false)
+	diskv1.DiskAddedToNode.Message(device, msg)
+	//}
 
 	return nil
 }
@@ -520,17 +539,23 @@ func (c *Controller) OnBlockDeviceDelete(key string, device *diskv1.BlockDevice)
 	}
 	nodeCpy := node.DeepCopy()
 	for _, bd := range bds {
-		if _, ok := nodeCpy.Spec.Disks[bd.Name]; !ok {
-			logrus.Debugf("disk %s not found in disks of longhorn node %s/%s", bd.Name, c.Namespace, c.NodeName)
-			continue
-		}
-		existingMount := bd.Status.DeviceStatus.FileSystem.MountPoint
-		if existingMount != "" {
-			if err := disk.UmountDisk(existingMount); err != nil {
-				logrus.Warnf("cannot umount disk %s from mount point %s, err: %s", bd.Name, existingMount, err.Error())
+		for i, no := range nodeCpy.Spec.Storage.Nodes {
+			if no.Name == c.NodeName {
+				for j, dev := range no.Selection.Devices {
+					if dev.Name == bd.Name {
+						existingMount := bd.Status.DeviceStatus.FileSystem.MountPoint
+						if existingMount != "" {
+							if err := disk.UmountDisk(existingMount); err != nil {
+								logrus.Warnf("cannot umount disk %s from mount point %s, err: %s", bd.Name, existingMount, err.Error())
+							}
+						}
+						nodeCpy.Spec.Storage.Nodes[i].Devices = append(nodeCpy.Spec.Storage.Nodes[i].Devices[:j], nodeCpy.Spec.Storage.Nodes[i].Devices[j+1:]...)
+						break
+					}
+				}
+				break
 			}
 		}
-		delete(nodeCpy.Spec.Disks, bd.Name)
 	}
 	if _, err := c.Nodes.Update(nodeCpy); err != nil {
 		return device, err

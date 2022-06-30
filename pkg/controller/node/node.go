@@ -8,9 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	ctldiskv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/harvesterhci.io/v1beta1"
-	ctllonghornv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io/v1beta1"
+	//ctllonghornv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/longhorn.io/v1beta1"
+	ctlrookcephv1 "github.com/harvester/node-disk-manager/pkg/generated/controllers/ceph.rook.io/v1"
 	"github.com/harvester/node-disk-manager/pkg/option"
-	longhornv1 "github.com/longhorn/longhorn-manager/k8s/pkg/apis/longhorn/v1beta1"
+
+	//longhornv1 "github.com/longhorn/longhorn-manager/k8s/pkg/apis/longhorn/v1beta1"
+	rookcephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 )
 
 type Controller struct {
@@ -18,7 +21,7 @@ type Controller struct {
 
 	BlockDevices     ctldiskv1.BlockDeviceController
 	BlockDeviceCache ctldiskv1.BlockDeviceCache
-	Nodes            ctllonghornv1.NodeController
+	Nodes            ctlrookcephv1.CephClusterController
 }
 
 const (
@@ -26,7 +29,7 @@ const (
 )
 
 // Register register the longhorn node CRD controller
-func Register(ctx context.Context, nodes ctllonghornv1.NodeController, bds ctldiskv1.BlockDeviceController, opt *option.Option) error {
+func Register(ctx context.Context, nodes ctlrookcephv1.CephClusterController, bds ctldiskv1.BlockDeviceController, opt *option.Option) error {
 
 	c := &Controller{
 		namespace:        opt.Namespace,
@@ -40,7 +43,7 @@ func Register(ctx context.Context, nodes ctllonghornv1.NodeController, bds ctldi
 }
 
 // OnNodeDelete watch the node CR on remove and delete node related block devices
-func (c *Controller) OnNodeDelete(key string, node *longhornv1.Node) (*longhornv1.Node, error) {
+func (c *Controller) OnNodeDelete(key string, node *rookcephv1.CephCluster) (*rookcephv1.CephCluster, error) {
 	if node == nil {
 		return nil, nil
 	}

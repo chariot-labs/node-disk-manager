@@ -15,7 +15,8 @@ import (
 	"github.com/jaypipes/ghw/pkg/linuxpath"
 	"github.com/jaypipes/ghw/pkg/option"
 	"github.com/jaypipes/ghw/pkg/util"
-	iscsiutil "github.com/longhorn/go-iscsi-helper/util"
+
+	//iscsiutil "github.com/longhorn/go-iscsi-helper/util"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/blake2b"
 
@@ -492,10 +493,10 @@ func partitionInfo(ctx *context.Context, paths *linuxpath.Paths, part string) (s
 
 func openProcMounts(ctx *context.Context, paths *linuxpath.Paths) (*os.File, error) {
 	file := paths.ProcMounts
-	if path, ok := ctx.PathOverrides[ndmutil.ProcPath]; ok {
-		ns := iscsiutil.GetHostNamespacePath(path)
-		file = strings.TrimSuffix(ns, "ns/") + "mounts"
-	}
+	// if path, ok := ctx.PathOverrides[ndmutil.ProcPath]; ok {
+	// 	ns := iscsiutil.GetHostNamespacePath(path)
+	// 	file = strings.TrimSuffix(ns, "ns/") + "mounts"
+	// }
 	return os.Open(file)
 }
 
