@@ -165,23 +165,23 @@ func (c *Controller) OnBlockDeviceChange(key string, device *diskv1.BlockDevice)
 		return device, err
 	}
 
-	if needMountUpdate := needUpdateMountPoint(deviceCpy, filesystem); needMountUpdate != NeedMountUpdateNo {
-		err := c.updateDeviceMount(deviceCpy, devPath, filesystem, needMountUpdate)
-		if err != nil {
-			err := fmt.Errorf("failed to update device mount %s: %s", device.Spec.DiskName, err.Error())
-			logrus.Error(err)
-			diskv1.DeviceMounted.SetError(deviceCpy, "", err)
-			diskv1.DeviceMounted.SetStatusBool(deviceCpy, false)
-		}
-		if !reflect.DeepEqual(device, deviceCpy) {
-			logrus.Debugf("Update block device %s for new mount state", device.Spec.DiskName)
-			return c.Blockdevices.Update(deviceCpy)
-		}
-		return device, err
-	}
+	// if needMountUpdate := needUpdateMountPoint(deviceCpy, filesystem); needMountUpdate != NeedMountUpdateNo {
+	// 	err := c.updateDeviceMount(deviceCpy, devPath, filesystem, needMountUpdate)
+	// 	if err != nil {
+	// 		err := fmt.Errorf("failed to update device mount %s: %s", device.Spec.DiskName, err.Error())
+	// 		logrus.Error(err)
+	// 		diskv1.DeviceMounted.SetError(deviceCpy, "", err)
+	// 		diskv1.DeviceMounted.SetStatusBool(deviceCpy, false)
+	// 	}
+	// 	if !reflect.DeepEqual(device, deviceCpy) {
+	// 		logrus.Debugf("Update block device %s for new mount state", device.Spec.DiskName)
+	// 		return c.Blockdevices.Update(deviceCpy)
+	// 	}
+	// 	return device, err
+	// }
 
 	needProvision := deviceCpy.Spec.FileSystem.Provisioned
-	needProvision = true
+	//needProvision = true
 	switch {
 	case needProvision:
 		if err := c.provisionDeviceToNode(deviceCpy); err != nil {
@@ -339,6 +339,7 @@ func (c *Controller) forceFormat(device *diskv1.BlockDevice, devPath string, fil
 
 // provisionDeviceToNode adds a device to longhorn node as an additional disk.
 func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
+	nodeFlag := false
 	node, err := c.NodeCache.Get(c.Namespace, c.ClusterName)
 	if apierrors.IsNotFound(err) {
 		node, err = c.Nodes.Get(c.Namespace, c.ClusterName, metav1.GetOptions{})
@@ -374,8 +375,14 @@ func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
 					}
 				}
 			}
+			nodeFlag = true
 			break
 		}
+	}
+	if nodeFlag == false {
+		newNode := rcv1.Node{Name: c.NodeName}
+		newNode.Devices = append(newNode.Devices, diskSpec)
+		nodeCpy.Spec.Storage.Nodes = append(nodeCpy.Spec.Storage.Nodes, newNode)
 	}
 	if _, err := c.Nodes.Update(nodeCpy); err != nil {
 		return err
