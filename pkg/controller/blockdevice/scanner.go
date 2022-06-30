@@ -90,7 +90,7 @@ func (s *Scanner) collectAllDevices() []*deviceWithAutoProvision {
 			logrus.Infof("Skip adding non-identifiable block device /dev/%s", disk.Name)
 			continue
 		}
-		autoProv := s.ApplyAutoProvisionFiltersForDisk(disk)
+		//autoProv := s.ApplyAutoProvisionFiltersForDisk(disk)
 		allDevices = append(allDevices, &deviceWithAutoProvision{bd: bd, AutoProvisioned: true})
 
 		for _, part := range disk.Partitions {

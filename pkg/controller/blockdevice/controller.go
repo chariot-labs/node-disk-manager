@@ -348,8 +348,9 @@ func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
 	}
 
 	nodeCpy := node.DeepCopy()
+	diskName := c.BlockInfo.GetDiskByDevPath(device.Spec.DevPath).Name
 	diskSpec := rcv1.Device{
-		Name:     device.Spec.DiskName,
+		Name:     diskName,
 		FullPath: device.Spec.DevPath,
 		Config:   make(map[string]string),
 	}
@@ -360,9 +361,9 @@ func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
 				nodeCpy.Spec.Storage.Nodes[i].Devices = append(nodeCpy.Spec.Storage.Nodes[i].Devices, diskSpec)
 			} else {
 				for j, dev := range no.Devices {
-					logrus.Infof("[James_DBG] provisionDeviceToNode j: %v, dev.Name: %v, device.Name: %v", j, dev.Name, device.Spec.DiskName)
-					if dev.Name == device.Spec.DiskName {
-						logrus.Infof("[James_DBG] get dev: %v", device.Spec.DiskName)
+					logrus.Infof("[James_DBG] provisionDeviceToNode j: %v, dev.Name: %v, device.Name: %v", j, dev.Name, diskName)
+					if dev.Name == diskName {
+						logrus.Infof("[James_DBG] get dev: %v", diskName)
 						if !reflect.DeepEqual(dev, diskSpec) {
 							nodeCpy.Spec.Storage.Nodes[i].Selection.Devices[j] = diskSpec
 							if _, err = c.Nodes.Update(nodeCpy); err != nil {
@@ -372,7 +373,7 @@ func (c *Controller) provisionDeviceToNode(device *diskv1.BlockDevice) error {
 						break
 					}
 					if j == len(no.Devices)-1 {
-						logrus.Infof("[James_DBG] not found add dev: %v", device.Spec.DiskName)
+						logrus.Infof("[James_DBG] not found add dev: %v", diskName)
 						nodeCpy.Spec.Storage.Nodes[i].Selection.Devices = append(nodeCpy.Spec.Storage.Nodes[i].Devices, diskSpec)
 					}
 				}

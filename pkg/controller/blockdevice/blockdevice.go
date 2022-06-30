@@ -119,6 +119,7 @@ func GetPartitionBlockDevice(part *block.Partition, nodeName, namespace string) 
 			NodeName:   nodeName,
 			DevPath:    devPath,
 			FileSystem: &diskv1.FilesystemInfo{},
+			DiskName:   part.Name,
 		},
 		Status: status,
 	}
