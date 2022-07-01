@@ -8,10 +8,11 @@ import (
 const (
 	vendorFilterName            = "vendor filter"
 	vendorFilterDefaultLonghorn = "longhorn"
+	vendorFilterDefaultRookCeph = "rook-ceph"
 )
 
 var (
-	defaultExcludedVendors = []string{vendorFilterDefaultLonghorn}
+	defaultExcludedVendors = []string{vendorFilterDefaultRookCeph}
 )
 
 type vendorFilter struct {

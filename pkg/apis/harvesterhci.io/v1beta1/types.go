@@ -39,6 +39,8 @@ type BlockDeviceSpec struct {
 	DevPath string `json:"devPath"`
 
 	FileSystem *FilesystemInfo `json:"fileSystem"`
+
+	DiskName string `json:"diskName"`
 }
 
 type BlockDeviceStatus struct {

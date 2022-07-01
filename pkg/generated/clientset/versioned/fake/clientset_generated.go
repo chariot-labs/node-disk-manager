@@ -24,8 +24,6 @@ import (
 	fakecephv1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/ceph.rook.io/v1/fake"
 	harvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1"
 	fakeharvesterhciv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/harvesterhci.io/v1beta1/fake"
-	longhornv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/longhorn.io/v1beta1"
-	fakelonghornv1beta1 "github.com/harvester/node-disk-manager/pkg/generated/clientset/versioned/typed/longhorn.io/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -88,9 +86,4 @@ func (c *Clientset) CephV1() cephv1.CephV1Interface {
 // HarvesterhciV1beta1 retrieves the HarvesterhciV1beta1Client
 func (c *Clientset) HarvesterhciV1beta1() harvesterhciv1beta1.HarvesterhciV1beta1Interface {
 	return &fakeharvesterhciv1beta1.FakeHarvesterhciV1beta1{Fake: &c.Fake}
-}
-
-// LonghornV1beta1 retrieves the LonghornV1beta1Client
-func (c *Clientset) LonghornV1beta1() longhornv1beta1.LonghornV1beta1Interface {
-	return &fakelonghornv1beta1.FakeLonghornV1beta1{Fake: &c.Fake}
 }

@@ -64,6 +64,7 @@ func GetDiskBlockDevice(disk *block.Disk, nodeName, namespace string) *diskv1.Bl
 			NodeName:   nodeName,
 			DevPath:    devPath,
 			FileSystem: &diskv1.FilesystemInfo{},
+			DiskName:   disk.Name,
 		},
 		Status: status,
 	}
@@ -118,6 +119,7 @@ func GetPartitionBlockDevice(part *block.Partition, nodeName, namespace string) 
 			NodeName:   nodeName,
 			DevPath:    devPath,
 			FileSystem: &diskv1.FilesystemInfo{},
+			DiskName:   part.Name,
 		},
 		Status: status,
 	}
